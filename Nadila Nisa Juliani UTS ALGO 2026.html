@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalkulator Saintifik - Nadila Nisa Juliani</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2029;
+    --display: #0f1116;
+    --key: #2a2e3a;
+    --key-hover: #353a49;
+    --fn: #3a3f52;
+    --op: #f5a524;
+    --eq: #2ec27e;
+    --danger: #e5484d;
+    --text: #eef0f5;
+    --muted: #8b90a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .wrap { width: 100%; max-width: 380px; }
+  .calc {
+    background: var(--panel);
+    border-radius: 24px;
+    padding: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  }
+  .owner {
+    text-align: center; margin-bottom: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid #2a2e3a;
+  }
+  .owner strong { display: block; font-size: 18px; letter-spacing: .02em; }
+  .owner span { font-size: 12px; color: var(--muted); }
+  .brand {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--muted); margin-bottom: 10px; letter-spacing: .04em;
+  }
+  .mode {
+    background: var(--display); padding: 3px 10px; border-radius: 99px; font-weight: 600;
+  }
+  .display {
+    background: var(--display);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    text-align: right;
+    min-height: 104px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  #expr {
+    font-size: 20px; color: var(--muted);
+    min-height: 28px; word-break: break-all;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  #result {
+    font-size: 38px; font-weight: 600; min-height: 48px;
+    overflow-x: auto; white-space: nowrap;
+  }
+  #result.error { color: var(--danger); font-size: 26px; }
+  .keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  button {
+    border: 0; border-radius: 12px;
+    background: var(--key); color: var(--text);
+    font-size: 17px; padding: 14px 0; cursor: pointer;
+    font-family: inherit;
+    transition: background .12s, transform .05s;
+  }
+  button:hover { background: var(--key-hover); }
+  button:active { transform: scale(.95); }
+  button.fn { background: var(--fn); font-size: 14px; }
+  button.op { background: var(--op); color: #1a1200; font-weight: 700; }
+  button.eq { background: var(--eq); color: #04170d; font-weight: 700; }
+  button.danger { background: var(--danger); color: #fff; font-weight: 700; }
+  button.span2 { grid-column: span 2; }
+  .history {
+    margin-top: 14px;
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  .history h3 {
+    margin: 0 0 8px; font-size: 12px; color: var(--muted);
+    display: flex; justify-content: space-between; font-weight: 600; letter-spacing: .04em;
+  }
+  .history h3 button {
+    background: none; padding: 0; font-size: 12px; color: var(--muted); text-decoration: underline;
+  }
+  #hist { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow-y: auto; }
+  #hist li {
+    padding: 6px 0; border-top: 1px solid #2a2e3a; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+  #hist li:hover { color: var(--op); }
+  #hist .e { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+  .empty { color: var(--muted); font-style: italic; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="calc">
+    <div class="owner">
+      <strong>Nadila Nisa Juliani</strong>
+      <span>UTS Logika Algoritma</span>
+    </div>
+    <div class="brand">
+      <span>SCIENTIFIC CALCULATOR</span>
+      <span class="mode" id="modeLabel">DEG</span>
+    </div>
+    <div class="display">
+      <div id="expr"></div>
+      <div id="result">0</div>
+    </div>
+    <div class="keys" id="keys"></div>
+  </div>
+
+  <div class="history">
+    <h3><span>RIWAYAT</span><button id="clearHist" type="button">hapus</button></h3>
+    <ul id="hist"><li class="empty">Belum ada perhitungan</li></ul>
+  </div>
+
+  <footer>Dibuat oleh Nadila Nisa Juliani &middot; UTS Logika Algoritma</footer>
+</div>
+
+<script>
+/* ============================================================
+   Kalkulator Saintifik - Nadila Nisa Juliani
+   UTS Logika Algoritma (Level 3)
+
+   Ekspresi dihitung dengan parser buatan sendiri (recursive
+   descent), tanpa eval(). Urutan prioritas operator:
+     1. kurung, fungsi
+     2. ! (faktorial) dan % (persen)
+     3. ^ (pangkat, asosiatif kanan)
+     4. unary + / -
+     5. * dan /
+     6. + dan -
+   ============================================================ */
+
+/* ---------- 1. TOKENIZER ---------- */
+const NAMES = ["asin", "acos", "atan", "sqrt", "sin", "cos", "tan", "log", "abs", "ans", "ln", "pi", "e"];
+
+function tokenize(src) {
+  const tokens = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (/\s/.test(ch)) { i++; continue; }
+
+    if (/[0-9.]/.test(ch)) {
+      let j = i;
+      while (j < src.length && /[0-9.]/.test(src[j])) j++;
+      const numStr = src.slice(i, j);
+      if ((numStr.match(/\./g) || []).length > 1 || numStr === ".") {
+        throw new Error("Angka tidak valid");
+      }
+      tokens.push({ type: "num", value: parseFloat(numStr) });
+      i = j;
+      continue;
+    }
+
+    if (/[a-z]/i.test(ch)) {
+      // cocokkan nama terpanjang dulu, supaya "esin(" terbaca e dan sin
+      const rest = src.slice(i).toLowerCase();
+      const name = NAMES.find((n) => rest.startsWith(n));
+      if (!name) throw new Error("Tidak dikenal: " + ch);
+      tokens.push({ type: "id", value: name });
+      i += name.length;
+      continue;
+    }
+
+    if ("+-*/^()!%".includes(ch)) {
+      tokens.push({ type: "op", value: ch });
+      i++;
+      continue;
+    }
+
+    throw new Error("Karakter tidak dikenal: " + ch);
+  }
+  return tokens;
+}
+
+/* ---------- 2. PARSER + EVALUATOR ---------- */
+function evaluate(src, angleMode, ansValue) {
+  const tokens = tokenize(src);
+  let pos = 0;
+
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+  const isOp = (v) => peek() && peek().type === "op" && peek().value === v;
+
+  const toRad = (x) => (angleMode === "DEG" ? (x * Math.PI) / 180 : x);
+  const fromRad = (x) => (angleMode === "DEG" ? (x * 180) / Math.PI : x);
+
+  // buang sisa error floating point, misal sin(180) = 1.2e-16 -> 0
+  const cleanTrig = (v) => (Math.abs(v) < 1e-14 ? 0 : v);
+
+  const funcs = {
+    sin: (x) => cleanTrig(Math.sin(toRad(x))),
+    cos: (x) => cleanTrig(Math.cos(toRad(x))),
+    tan: (x) => {
+      if (angleMode === "DEG" && Math.abs(((x % 180) + 180) % 180 - 90) < 1e-12) {
+        throw new Error("tan tidak terdefinisi");
+      }
+      return Math.tan(toRad(x));
+    },
+    asin: (x) => {
+      if (x < -1 || x > 1) throw new Error("asin: domain -1..1");
+      return fromRad(Math.asin(x));
+    },
+    acos: (x) => {
+      if (x < -1 || x > 1) throw new Error("acos: domain -1..1");
+      return fromRad(Math.acos(x));
+    },
+    atan: (x) => fromRad(Math.atan(x)),
+    log: (x) => {
+      if (x <= 0) throw new Error("log: x harus > 0");
+      return Math.log10(x);
+    },
+    ln: (x) => {
+      if (x <= 0) throw new Error("ln: x harus > 0");
+      return Math.log(x);
+    },
+    sqrt: (x) => {
+      if (x < 0) throw new Error("Akar bilangan negatif");
+      return Math.sqrt(x);
+    },
+    abs: (x) => Math.abs(x),
+  };
+
+  const consts = { pi: Math.PI, e: Math.E, ans: ansValue };
+
+  function factorial(n) {
+    if (!Number.isInteger(n) || n < 0) throw new Error("Faktorial: bilangan bulat >= 0");
+    if (n > 170) throw new Error("Faktorial terlalu besar");
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  }
+
+  // expr = term (('+'|'-') term)*
+  function parseExpr() {
+    let left = parseTerm();
+    while (isOp("+") || isOp("-")) {
+      const op = next().value;
+      const right = parseTerm();
+      left = op === "+" ? left + right : left - right;
+    }
+    return left;
+  }
+
+  // term = unary (('*'|'/'| implicit) unary)*
+  function startsOperand() {
+    const t = peek();
+    if (!t) return false;
+    if (t.type === "num" || t.type === "id") return true;
+    return t.type === "op" && t.value === "(";
+  }
+
+  function parseTerm() {
+    let left = parseUnary();
+    while (true) {
+      if (isOp("*") || isOp("/")) {
+        const op = next().value;
+        const right = parseUnary();
+        if (op === "/") {
+          if (right === 0) throw new Error("Tidak bisa dibagi nol");
+          left = left / right;
+        } else {
+          left = left * right;
+        }
+      } else if (startsOperand()) {
+        // perkalian implisit, contoh: 2π, 3(4+1)
+        left = left * parseUnary();
+      } else {
+        break;
+      }
+    }
+    return left;
+  }
+
+  // unary = ('+'|'-') unary | power
+  function parseUnary() {
+    if (isOp("-")) { next(); return -parseUnary(); }
+    if (isOp("+")) { next(); return parseUnary(); }
+    return parsePower();
+  }
+
+  // power = postfix ('^' unary)?   (asosiatif kanan)
+  function parsePower() {
+    const base = parsePostfix();
+    if (isOp("^")) {
+      next();
+      const exp = parseUnary();
+      const r = Math.pow(base, exp);
+      if (Number.isNaN(r)) throw new Error("Hasil pangkat tidak valid");
+      return r;
+    }
+    return base;
+  }
+
+  // postfix = primary ('!' | '%')*
+  function parsePostfix() {
+    let v = parsePrimary();
+    while (isOp("!") || isOp("%")) {
+      const op = next().value;
+      v = op === "!" ? factorial(v) : v / 100;
+    }
+    return v;
+  }
+
+  // primary = number | const | func '(' expr ')' | '(' expr ')'
+  function parsePrimary() {
+    const t = next();
+    if (!t) throw new Error("Ekspresi belum lengkap");
+
+    if (t.type === "num") return t.value;
+
+    if (t.type === "id") {
+      if (t.value in consts) return consts[t.value];
+      if (t.value in funcs) {
+        if (!isOp("(")) throw new Error("Fungsi " + t.value + " butuh kurung");
+        next();
+        const arg = parseExpr();
+        if (!isOp(")")) throw new Error("Kurung belum ditutup");
+        next();
+        return funcs[t.value](arg);
+      }
+      throw new Error("Tidak dikenal: " + t.value);
+    }
+
+    if (t.type === "op" && t.value === "(") {
+      const v = parseExpr();
+      if (!isOp(")")) throw new Error("Kurung belum ditutup");
+      next();
+      return v;
+    }
+
+    throw new Error("Sintaks salah");
+  }
+
+  const result = parseExpr();
+  if (pos < tokens.length) throw new Error("Sintaks salah");
+  if (!Number.isFinite(result)) throw new Error("Hasil tidak terdefinisi");
+  return result;
+}
+
+/* ---------- 3. UTILITAS ---------- */
+function formatNumber(n) {
+  // buang error floating point, misal sin(180) = 1.2e-16 -> 0
+  let r = parseFloat(n.toPrecision(12));
+  if (Object.is(r, -0)) r = 0;
+  if (Math.abs(r) >= 1e15 || (Math.abs(r) < 1e-9 && r !== 0)) {
+    return r.toExponential(6).replace(/\.?0+e/, "e");
+  }
+  return String(r);
+}
+
+function normalize(s) {
+  return s
+    .replace(/×/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/−/g, "-")
+    .replace(/π/g, "pi")
+    .replace(/√/g, "sqrt");
+}
+
+function autoClose(s) {
+  const open = (s.match(/\(/g) || []).length;
+  const close = (s.match(/\)/g) || []).length;
+  return s + ")".repeat(Math.max(0, open - close));
+}
+
+/* ---------- 4. STATE & UI ---------- */
+let expr = "";
+let ans = 0;
+let angleMode = "DEG";
+let justEvaluated = false;
+let history = [];
+
+const exprEl = document.getElementById("expr");
+const resultEl = document.getElementById("result");
+const modeEl = document.getElementById("modeLabel");
+const histEl = document.getElementById("hist");
+
+// [label, nilai-yang-dimasukkan, kelas]
+const layout = [
+  ["DEG", "MODE", "fn"], ["sin", "sin(", "fn"], ["cos", "cos(", "fn"], ["tan", "tan(", "fn"], ["AC", "AC", "danger"],
+  ["asin", "asin(", "fn"], ["acos", "acos(", "fn"], ["atan", "atan(", "fn"], ["x²", "^2", "fn"], ["DEL", "DEL", "fn"],
+  ["ln", "ln(", "fn"], ["log", "log(", "fn"], ["√", "√(", "fn"], ["xʸ", "^", "fn"], ["abs", "abs(", "fn"],
+  ["π", "π", "fn"], ["e", "e", "fn"], ["(", "(", "fn"], [")", ")", "fn"], ["÷", "÷", "op"],
+  ["7", "7"], ["8", "8"], ["9", "9"], ["×", "×", "op"], ["n!", "!", "fn"],
+  ["4", "4"], ["5", "5"], ["6", "6"], ["−", "−", "op"], ["%", "%", "fn"],
+  ["1", "1"], ["2", "2"], ["3", "3"], ["+", "+", "op"], ["Ans", "ans", "fn"],
+  ["0", "0", "span2"], [".", "."], ["=", "=", "eq span2"],
+];
+
+const keysEl = document.getElementById("keys");
+layout.forEach(([label, value, cls]) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = label;
+  b.dataset.v = value;
+  if (cls) cls.split(" ").forEach((c) => b.classList.add(c));
+  if (label === "DEG") b.id = "modeBtn";
+  keysEl.appendChild(b);
+});
+
+function showError(msg) {
+  resultEl.textContent = msg;
+  resultEl.classList.add("error");
+}
+
+function render() {
+  exprEl.textContent = expr;
+  resultEl.classList.remove("error");
+
+  if (!expr) { resultEl.textContent = "0"; return; }
+
+  // pratinjau hasil secara langsung (tanpa menampilkan error saat masih mengetik)
+  try {
+    const val = evaluate(normalize(autoClose(expr)), angleMode, ans);
+    resultEl.textContent = formatNumber(val);
+  } catch (_) {
+    /* biarkan hasil sebelumnya */
+  }
+}
+
+function press(v) {
+  if (v === "AC") { expr = ""; justEvaluated = false; render(); return; }
+  if (v === "DEL") {
+    if (justEvaluated) { expr = ""; justEvaluated = false; }
+    else if (expr.endsWith("sqrt(")) expr = expr.slice(0, -5);
+    else expr = expr.replace(/(asin\(|acos\(|atan\(|sin\(|cos\(|tan\(|log\(|abs\(|ln\(|ans|√\(|.)$/, "");
+    render();
+    return;
+  }
+  if (v === "MODE") {
+    angleMode = angleMode === "DEG" ? "RAD" : "DEG";
+    modeEl.textContent = angleMode;
+    document.getElementById("modeBtn").textContent = angleMode;
+    render();
+    return;
+  }
+  if (v === "=") { calculate(); return; }
+
+  const isOperator = /^[÷×−+^%!]$/.test(v) || v === "^2";
+
+  if (justEvaluated) {
+    // setelah "=", operator melanjutkan hasil; angka/fungsi memulai baru
+    expr = isOperator ? formatNumber(ans) : "";
+    justEvaluated = false;
+  }
+
+  expr += v;
+  render();
+}
+
+function calculate() {
+  if (!expr) return;
+  try {
+    const closed = autoClose(expr);
+    const val = evaluate(normalize(closed), angleMode, ans);
+    const shown = formatNumber(val);
+    addHistory(closed, shown);
+    ans = parseFloat(shown);
+    expr = closed;
+    exprEl.textContent = closed + " =";
+    resultEl.textContent = shown;
+    resultEl.classList.remove("error");
+    justEvaluated = true;
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function addHistory(e, r) {
+  history.unshift({ e, r });
+  if (history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  histEl.innerHTML = "";
+  if (history.length === 0) {
+    histEl.innerHTML = '<li class="empty">Belum ada perhitungan</li>';
+    return;
+  }
+  history.forEach((h) => {
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    left.className = "e";
+    left.textContent = h.e;
+    const right = document.createElement("strong");
+    right.textContent = "= " + h.r;
+    li.append(left, right);
+    li.title = "Klik untuk memakai hasil ini";
+    li.addEventListener("click", () => {
+      expr = h.e;
+      justEvaluated = false;
+      render();
+    });
+    histEl.appendChild(li);
+  });
+}
+
+/* ---------- 5. EVENT ---------- */
+keysEl.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button");
+  if (btn) press(btn.dataset.v);
+});
+
+document.getElementById("clearHist").addEventListener("click", () => {
+  history = [];
+  renderHistory();
+});
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const k = ev.key;
+  if (/^[0-9.()+^%!]$/.test(k)) press(k);
+  else if (k === "-") press("−");
+  else if (k === "*") press("×");
+  else if (k === "/") { ev.preventDefault(); press("÷"); }
+  else if (k === "Enter" || k === "=") { ev.preventDefault(); press("="); }
+  else if (k === "Backspace") press("DEL");
+  else if (k === "Escape") press("AC");
+  else if (k === "p") press("π");
+});
+
+render();
+</script>
+</body>
+</html>
